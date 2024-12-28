@@ -2,6 +2,9 @@ const express = require('express');
 const dotenv = require('dotenv');
 const app = express();
 const { Pool } = require('pg');
+const UserService = require('./services/userService');
+const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 
 //env set up
 dotenv.config();
@@ -15,25 +18,29 @@ const pool = new Pool({
     database: process.env.PG_DATABASE,
 });
 
-pool.connect()
-    .then(() => console.log('Connected to PostgreSQL'))
-    .catch((err) => {
-        console.error('Error connecting to PostgreSQL:', err.stack);
-        process.exit(1);
-});
-
-app.get('/db-test', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT NOW()'); 
-        res.json({ message: 'Database connected successfully', time: result.rows[0].now });
-    } catch (err) {
-        console.error('Database query error:', err.message);
-        res.status(500).json({ error: 'Database connection failed' });
-    }
-});
-
 //port set up
 const PORT = process.env.PORT || 3000;
+
+//middleware
+app.use(express.json());
+
+// Session setup
+app.use(
+    session({
+      store: new pgSession({
+        pool, // PostgreSQL pool connection
+        tableName: 'session', // Default table name
+      }),
+      secret: process.env.SESSION_SECRET, // Replace with a secure secret
+      resave: false, // Don't save session if unmodified
+      saveUninitialized: false, // Don't save uninitialized session
+      cookie: {
+        httpOnly: true, // Protect against XSS
+        secure: false, // Set true for HTTPS
+        maxAge: 1000 * 60 * 15, // Session expires in 15 minutes
+      },
+    })
+);
 
 //basic route
 app.get('/', (req, res) => {
@@ -44,3 +51,5 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+
