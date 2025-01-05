@@ -7,8 +7,8 @@ class UserService {
 
   async login(email, password, req) {
     // Find the user
-    const query = 'SELECT * FROM users WHERE email = $1';
-    const { rows } = await this.pool.query(query, [email]);
+    const query = 'SELECT * FROM users WHERE email = ?';
+    const [rows] = await this.pool.query(query, [email]);
 
     if (!rows.length) {
       throw new Error('User not found');
@@ -29,22 +29,35 @@ class UserService {
   }
 
   async register(email, password) {
-    // Check duplication
-    const isDuplicatedQuery = 'SELECT * FROM users WHERE email = $1';
-    const { rows: existingUsers } = await this.pool.query(isDuplicatedQuery, [email]);
+    let registerQuery;
+    try {
+      console.log('Starting registration for:', email);
 
-    if (existingUsers.length) {
-      throw new Error('Existing user');
+      const isDuplicatedQuery = 'SELECT * FROM users WHERE email = ?';
+      console.log('Running duplication query:', isDuplicatedQuery, [email]);
+      const [existingUsers] = await this.pool.query(isDuplicatedQuery, [email]);
+      console.log('Duplicate check result:', existingUsers);
+
+      if (existingUsers.length) {
+        console.error('Duplicate user found:', email);
+        throw new Error(`User with email "${email}" already exists.`);
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      console.log('Password hashed:', hashedPassword);
+
+      registerQuery = 'INSERT INTO users (email, password) VALUES (?, ?)';
+      console.log('Inserting user with query:', registerQuery, [email, hashedPassword]);
+
+      const [result] = await this.pool.query(registerQuery, [email, hashedPassword]);
+      console.log('User registered successfully with ID:', result.insertId);
+
+      return { id: result.insertId, email };
+    } catch (err) {
+      console.error('Error during registration:', err.message);
+      console.error('Query:', registerQuery);
+      throw err;
     }
-
-    // Hashing password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // User register
-    const registerQuery = 'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING *';
-    const { rows } = await this.pool.query(registerQuery, [email, hashedPassword]);
-
-    return rows[0];
   }
 
   async logout(req) {
@@ -57,7 +70,7 @@ class UserService {
         }
       });
     });
-}
+  }
 }
 
 module.exports = UserService;
