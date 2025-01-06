@@ -36,5 +36,5 @@ Spring만 쓰다보니 동기,비동기같은 개념에 취약
 
 
 참고자료
-https://velog.io/@ryudg_/Nodejs-Bscrypt를-이용한-Login-구현
+https://velog.io/@ryudg_/Node.js-Session
 

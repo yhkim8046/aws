@@ -1,63 +1,52 @@
-const express = require('express');
-const router = express.Router();
-const mysql = require('mysql2/promise');
-const UserService = require('../services/userService');
-
-require('dotenv').config();
-
-// MySQL Connection Pool 설정
-const pool = mysql.createPool({
-    host: '127.0.0.1',
-    port: process.env.MYSQL_PORT,
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    database: process.env.MYSQL_DATABASE,
-});
-
-// UserService 초기화
-const userService = new UserService(pool);
-
-// login
-router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    try {
-        const result = await userService.login(email, password, req);        
-        res.status(200).json(result);
-    } catch (error) {
-        console.error('Error in /login:', error.message);
-        res.status(400).json({ error: error.message });
+class UserController {
+    constructor(userService) {
+      this.userService = userService;
     }
-});
-
-// register
-router.post('/register', async (req, res) => {
-    const { email, password } = req.body;
-
-    try {
-        const newUser = await userService.register(email, password);
-        res.status(201).json(newUser);
-    } catch (error) {
-        console.error('Error in /register:', error.message);
-        res.status(400).json({ error: error.message });
+  
+    async login(req, res) {
+      const { email, password } = req.body;
+  
+      if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required.' });
+      }
+  
+      try {
+        const user = await this.userService.login(email, password); // 서비스 호출
+        req.session.user = user; // 세션에 저장
+        return res.status(200).json({ message: 'Logged in successfully.', user });
+      } catch (error) {
+        console.error('Login error:', error.message);
+        return res.status(401).json({ message: error.message });
+      }
     }
-});
-
-// logout
-router.post('/logout', async (req, res) => {
-    try {
-        const result = await userService.logout(req);
-        res.status(200).json(result);
-    } catch (error) {
-        console.error('Error in /logout:', error.message);
-        res.status(400).json({ error: error.message });
+  
+    async register(req, res) {
+      const { email, password } = req.body;
+  
+      if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required.' });
+      }
+  
+      try {
+        const user = await this.userService.register(email, password); // 서비스 호출
+        return res.status(201).json({ message: 'User registered successfully.', user });
+      } catch (error) {
+        console.error('Register error:', error.message);
+        return res.status(500).json({ message: error.message });
+      }
     }
-});
-
-//Session test 
-router.get('/session', (req, res) => {
-    res.json(req.session);
-});
-
-
-module.exports = router;
+  
+    async logout(req, res) {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Logout error:', err.message);
+          return res.status(500).json({ message: 'Failed to log out.' });
+        }
+        res.clearCookie('connect.sid'); // 세션 쿠키 제거
+        return res.status(200).json({ message: 'Logged out successfully.' });
+      });
+    }
+  }
+  
+  module.exports = UserController;
+  

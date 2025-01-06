@@ -5,6 +5,7 @@ const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session); // MySQL 세션 스토리지
 const userController = require('./controllers/userController');
 const taskController = require('./controllers/taskController');
+const bodyParser = require('body-parser');
 
 dotenv.config();
 
