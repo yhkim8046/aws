@@ -1,52 +1,46 @@
-class UserController {
-    constructor(userService) {
-      this.userService = userService;
-    }
-  
-    async login(req, res) {
-      const { email, password } = req.body;
-  
-      if (!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required.' });
-      }
-  
-      try {
-        const user = await this.userService.login(email, password); // 서비스 호출
-        req.session.user = user; // 세션에 저장
-        return res.status(200).json({ message: 'Logged in successfully.', user });
-      } catch (error) {
-        console.error('Login error:', error.message);
-        return res.status(401).json({ message: error.message });
-      }
-    }
-  
-    async register(req, res) {
-      const { email, password } = req.body;
-  
-      if (!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required.' });
-      }
-  
-      try {
-        const user = await this.userService.register(email, password); // 서비스 호출
-        return res.status(201).json({ message: 'User registered successfully.', user });
-      } catch (error) {
-        console.error('Register error:', error.message);
-        return res.status(500).json({ message: error.message });
-      }
-    }
-  
-    async logout(req, res) {
-      req.session.destroy((err) => {
-        if (err) {
-          console.error('Logout error:', err.message);
-          return res.status(500).json({ message: 'Failed to log out.' });
-        }
-        res.clearCookie('connect.sid'); // 세션 쿠키 제거
-        return res.status(200).json({ message: 'Logged out successfully.' });
-      });
-    }
+const express = require('express');
+const router = express.Router();
+
+const UserService = require('../services/userService');
+const { pool } = require('../db');
+
+// 에러 핸들러, 유틸 등 import
+const CustomError = require('../utils/customError');
+const asyncWrapper = require('../utils/asyncWrapper');
+
+const userService = new UserService(pool);
+
+router.post('/login', asyncWrapper(async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    throw new CustomError('Email and password are required.', 400);
   }
-  
-  module.exports = UserController;
-  
+
+  const user = await userService.login(email, password);
+  req.session.user = user;
+  res.status(200).json({ message: 'Logged in successfully.', user });
+}));
+
+router.post('/register', asyncWrapper(async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    throw new CustomError('Email and password are required.', 400);
+  }
+
+  const user = await userService.register(email, password);
+  res.status(201).json({ message: 'User registered successfully.', user });
+}));
+
+router.post('/logout', (req, res, next) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return next(new CustomError('Failed to log out.', 500));
+    }
+    res.clearCookie('connect.sid');
+    res.status(200).json({ message: 'Logged out successfully.' });
+  });
+});
+
+module.exports = router;

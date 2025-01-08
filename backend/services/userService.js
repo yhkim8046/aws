@@ -1,18 +1,19 @@
+// userService.js
 const bcrypt = require('bcrypt');
 
 class UserService {
+  
   constructor(pool) {
-    this.pool = pool;
+    this.pool = pool; 
   }
 
-  async findUserByEmail(email){
-    const query = `SELECT * FROM users WHERE email = ?`;
+  async findUserByEmail(email) {
+    const query = 'SELECT * FROM users WHERE email = ?';
     const [rows] = await this.pool.query(query, [email]);
-    
     return rows[0] || null;
   }
 
-  async validatePassword(password, hashedPassword){
+  async validatePassword(password, hashedPassword) {
     return bcrypt.compare(password, hashedPassword);
   }
 
@@ -30,10 +31,6 @@ class UserService {
     return { id: user.id, email: user.email };
   }
 
-  async validatePassword(password, hashedPassword) {
-    return bcrypt.compare(password, hashedPassword);
-  }
-
   async register(email, password) {
     const existingUser = await this.findUserByEmail(email);
     if (existingUser) {
@@ -46,7 +43,6 @@ class UserService {
 
     return { id: result.insertId, email };
   }
-
 }
 
 module.exports = UserService;

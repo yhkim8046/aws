@@ -1,194 +1,159 @@
+const CustomError = require('../utils/customError');
+
 class TaskServices {
-    constructor(pool) {
-        this.pool = pool;
+  constructor(pool) {
+    this.pool = pool;
+  }
+
+  // 할일 생성
+  async createTask(title, content, priority, userId) {
+    // 날짜(오늘) 기준으로 일일 10개 제한 예시
+    const currentDate = new Date();
+
+    const getTodayTasksQuery = `
+      SELECT * FROM tasks
+      WHERE date = ? AND userId = ?
+    `;
+    const [todayTasks] = await this.pool.query(getTodayTasksQuery, [currentDate, userId]);
+
+    if (todayTasks.length >= 10) {
+      throw new CustomError('Tasks cannot exceed 10 per day', 400);
     }
 
-    async createTask(title, content, priority, req) {
-        const userId = req.session?.user?.id;
-        if (!userId) {
-            throw new Error('User is not logged in');
-        }
+    // 새로운 할일 추가
+    const postTaskQuery = `
+      INSERT INTO tasks (title, content, priority, date, userId)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    const [insertResult] = await this.pool.query(postTaskQuery, [
+      title, content, priority, currentDate, userId
+    ]);
 
-        const currentDate = new Date();
+    // 방금 추가한 할일을 SELECT
+    const [newTask] = await this.pool.query(
+      `SELECT * FROM tasks WHERE taskId = ?`,
+      [insertResult.insertId]
+    );
 
-        // 오늘의 작업 가져오기
-        const getTodayTasksQuery = `SELECT * FROM tasks WHERE date = ? AND userId = ?`;
-        const [todayTasks] = await this.pool.query(getTodayTasksQuery, [currentDate, userId]);
+    return newTask[0];
+  }
 
-        if (todayTasks.length >= 10) {
-            throw new Error('Tasks cannot exceed 10 per day');
-        }
+  // 할일 완료 여부 업데이트
+  async completeTask(taskId, isFinished, userId) {
+    // 해당 taskId가 현재 user의 것인지 확인 & 업데이트
+    const updateTaskQuery = `
+      UPDATE tasks
+      SET isFinished = ?
+      WHERE taskId = ? AND userId = ?
+    `;
+    const [result] = await this.pool.query(updateTaskQuery, [isFinished, taskId, userId]);
 
-        // 새로운 작업 추가
-        const postTaskQuery = `
-            INSERT INTO tasks (title, content, priority, date, userId)
-            VALUES (?, ?, ?, ?, ?)
-        `;
-        await this.pool.query(postTaskQuery, [title, content, priority, currentDate, userId]);
-
-        // 방금 추가한 작업 반환
-        const [newTask] = await this.pool.query(
-            `SELECT * FROM tasks WHERE userId = ? ORDER BY taskId DESC LIMIT 1`,
-            [userId]
-        );
-
-        return newTask[0];
+    if (result.affectedRows === 0) {
+      throw new CustomError('Task not found or not authorized to update', 404);
     }
 
-    async completeTask(taskId, isFinished, req) {
-        const userId = req.session?.user?.id;
+    const [updatedTask] = await this.pool.query(
+      `SELECT * FROM tasks WHERE taskId = ? AND userId = ?`,
+      [taskId, userId]
+    );
+    return updatedTask[0];
+  }
 
-        if (!userId) {
-            throw new Error('User is not logged in');
-        }
+  // 할일 삭제
+  async deleteTask(taskId, userId) {
+    const deleteQuery = `
+      DELETE FROM tasks
+      WHERE taskId = ? AND userId = ?
+    `;
+    const [result] = await this.pool.query(deleteQuery, [taskId, userId]);
 
-        const updateTaskQuery = `
-            UPDATE tasks 
-            SET isFinished = ? 
-            WHERE taskId = ? AND userId = ?
-        `;
-        const [result] = await this.pool.query(updateTaskQuery, [isFinished, taskId, userId]);
-
-        if (result.affectedRows === 0) {
-            throw new Error('Task not found or not authorized to update');
-        }
-
-        const [updatedTask] = await this.pool.query(
-            `SELECT * FROM tasks WHERE taskId = ? AND userId = ?`,
-            [taskId, userId]
-        );
-
-        return updatedTask[0];
+    if (result.affectedRows === 0) {
+      throw new CustomError('Task not found or not authorized to delete', 404);
     }
 
-    async deleteTask(taskId, req) {
-        const userId = req.session?.user?.id;
+    return { message: 'Task deleted successfully' };
+  }
 
-        if (!userId) {
-            throw new Error('User is not logged in');
-        }
+  // 특정 할일 조회
+  async getOneTask(taskId, userId) {
+    const getOneQuery = `
+      SELECT * FROM tasks
+      WHERE taskId = ? AND userId = ?
+    `;
+    const [rows] = await this.pool.query(getOneQuery, [taskId, userId]);
 
-        const deleteQuery = `
-            DELETE FROM tasks 
-            WHERE taskId = ? AND userId = ?
-        `;
-        const [result] = await this.pool.query(deleteQuery, [taskId, userId]);
-
-        if (result.affectedRows === 0) {
-            throw new Error('Task not found or not authorized to delete');
-        }
-
-        return { message: 'Task deleted successfully' };
+    if (rows.length === 0) {
+      throw new CustomError('Task not found or not authorized to access', 404);
     }
 
-    async getOneTask(taskId, req) {
-        const userId = req.session?.user?.id;
+    return rows[0];
+  }
 
-        if (!userId) {
-            throw new Error('User is not logged in');
-        }
+  // 모든 할일 조회
+  async getAllTasks(userId) {
+    const getAllTasksQuery = `
+      SELECT * FROM tasks
+      WHERE userId = ?
+      ORDER BY date DESC, priority ASC
+    `;
+    const [rows] = await this.pool.query(getAllTasksQuery, [userId]);
+    return rows;
+  }
 
-        const getOneQuery = `
-            SELECT *
-            FROM tasks
-            WHERE taskId = ? AND userId = ?
-        `;
-        const [rows] = await this.pool.query(getOneQuery, [taskId, userId]);
+  // 특정 날짜의 할일 조회
+  async getAllDailyTasks(date, userId) {
+    const getAllDailyTasksQuery = `
+      SELECT * FROM tasks
+      WHERE userId = ? AND date = ?
+      ORDER BY priority ASC
+    `;
+    const [rows] = await this.pool.query(getAllDailyTasksQuery, [userId, date]);
+    return rows;
+  }
 
-        if (rows.length === 0) {
-            throw new Error('Task not found or not authorized to access');
-        }
+  // 할일 수정(여러 필드 업데이트)
+  async updateTask(taskId, updates, userId) {
+    const fields = [];
+    const values = [];
 
-        return rows[0];
+    // { title: '...', content: '...', priority: 3 } 처럼 들어온다고 가정
+    Object.keys(updates).forEach((key) => {
+      fields.push(`${key} = ?`);
+      values.push(updates[key]);
+    });
+
+    if (fields.length === 0) {
+      throw new CustomError('No fields to update', 400);
     }
 
-    async getAllTasks(req) {
-        const userId = req.session?.user?.id;
+    // WHERE 조건에 쓰일 파라미터도 추가
+    values.push(taskId, userId);
 
-        if (!userId) {
-            throw new Error('User is not logged in');
-        }
+    const updateQuery = `
+      UPDATE tasks
+      SET ${fields.join(', ')}
+      WHERE taskId = ? AND userId = ?
+    `;
+    const [result] = await this.pool.query(updateQuery, values);
 
-        const getAllTasksQuery = `
-            SELECT *
-            FROM tasks
-            WHERE userId = ?
-        `;
-        const [rows] = await this.pool.query(getAllTasksQuery, [userId]);
-
-        return rows;
+    if (result.affectedRows === 0) {
+      throw new CustomError('Task not found or not authorized to update', 404);
     }
 
-    async getAllDailyTasks(date, req) {
-        const userId = req.session?.user?.id;
+    const [updatedTask] = await this.pool.query(
+      `SELECT * FROM tasks WHERE taskId = ? AND userId = ?`,
+      [taskId, userId]
+    );
 
-        if (!userId) {
-            throw new Error('User is not logged in');
-        }
+    return updatedTask[0];
+  }
 
-        const getAllDailyTasksQuery = `
-            SELECT *
-            FROM tasks
-            WHERE userId = ? AND date = ?
-        `;
-        const [rows] = await this.pool.query(getAllDailyTasksQuery, [userId, date]);
-
-        return rows;
-    }
-
-    async updateTask(taskId, updates, req) {
-        const userId = req.session?.user?.id;
-
-        if (!userId) {
-            throw new Error('User is not logged in');
-        }
-
-        const fields = [];
-        const values = [];
-
-        Object.keys(updates).forEach((key) => {
-            fields.push(`${key} = ?`);
-            values.push(updates[key]);
-        });
-
-        if (fields.length === 0) {
-            throw new Error('No fields to update');
-        }
-
-        values.push(taskId, userId);
-
-        const updateQuery = `
-            UPDATE tasks
-            SET ${fields.join(', ')}
-            WHERE taskId = ? AND userId = ?
-        `;
-        const [result] = await this.pool.query(updateQuery, values);
-
-        if (result.affectedRows === 0) {
-            throw new Error('Task not found or not authorized to update');
-        }
-
-        const [updatedTask] = await this.pool.query(
-            `SELECT * FROM tasks WHERE taskId = ? AND userId = ?`,
-            [taskId, userId]
-        );
-
-        return updatedTask[0];
-    }
-
-    async sortByPriority(date, req) {
-        const userId = req.session?.user?.id;
-
-        if (!userId) {
-            throw new Error('User is not logged in');
-        }
-
-        const tasks = await this.getAllDailyTasks(date, req);
-
-        const sortedTasks = tasks.sort((a, b) => a.priority - b.priority);
-
-        return sortedTasks;
-    }
+  // 작업 우선순위 정렬 예시
+  async sortByPriority(date, userId) {
+    // 특정 날짜의 작업 가져와서 JS에서 소팅
+    const tasks = await this.getAllDailyTasks(date, userId);
+    return tasks.sort((a, b) => a.priority - b.priority);
+  }
 }
 
 module.exports = TaskServices;
