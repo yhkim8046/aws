@@ -1,0 +1,60 @@
+/* 화면 전체를 중앙 정렬 */
+.register-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;       /* 화면 높이 꽉 채우기 */
+    background-color: #f5f5f5;
+  }
+  
+  /* 카드 형태 박스 */
+  .register-card {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 400px;       /* 카드 최대 너비 */
+    width: 100%;            /* 모바일 대응 */
+  }
+  
+  .register-card h1 {
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-size: 1.5rem;
+  }
+  
+  .input-group {
+    margin-bottom: 1rem;
+  }
+  
+  .input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+  
+  .input-group input {
+    width: 100%;
+    padding: 0.5rem;
+    box-sizing: border-box;
+    font-size: 1rem;
+  }
+  
+  /* 회원가입 버튼 스타일 */
+  .register-button {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #007bff;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 1rem;
+  }
+  
+  .register-button:hover {
+    background-color: #0056b3;
+  }
+  
