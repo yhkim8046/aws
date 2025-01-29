@@ -6,27 +6,24 @@ class TaskServices {
   }
 
   // 할일 생성
-  async createTask(title, content, priority, userId) {
-    // 날짜(오늘) 기준으로 일일 10개 제한 예시
-    const currentDate = new Date();
-
-    const getTodayTasksQuery = `
+  async createTask(content, userId) {
+    const getAllTasksQuery = `
       SELECT * FROM tasks
-      WHERE date = ? AND userId = ?
+      WHERE userId = ?
     `;
-    const [todayTasks] = await this.pool.query(getTodayTasksQuery, [currentDate, userId]);
+    const [tasks] = await this.pool.query(getAllTasksQuery, [userId]);
 
-    if (todayTasks.length >= 10) {
+    if (tasks.length >= 10) {
       throw new CustomError('Tasks cannot exceed 10 per day', 400);
     }
 
     // 새로운 할일 추가
     const postTaskQuery = `
-      INSERT INTO tasks (title, content, priority, date, userId)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO tasks (content, userId)
+      VALUES (?, ?)
     `;
     const [insertResult] = await this.pool.query(postTaskQuery, [
-      title, content, priority, currentDate, userId
+      content, userId
     ]);
 
     // 방금 추가한 할일을 SELECT
@@ -40,7 +37,7 @@ class TaskServices {
 
   // 할일 완료 여부 업데이트
   async completeTask(taskId, isFinished, userId) {
-    // 해당 taskId가 현재 user의 것인지 확인 & 업데이트
+  
     const updateTaskQuery = `
       UPDATE tasks
       SET isFinished = ?
@@ -68,7 +65,7 @@ class TaskServices {
     const [result] = await this.pool.query(deleteQuery, [taskId, userId]);
 
     if (result.affectedRows === 0) {
-      throw new CustomError('Task not found or not authorized to delete', 404);
+      throw new CustomError('Task not found', 404);
     }
 
     return { message: 'Task deleted successfully' };
@@ -94,65 +91,34 @@ class TaskServices {
     const getAllTasksQuery = `
       SELECT * FROM tasks
       WHERE userId = ?
-      ORDER BY date DESC, priority ASC
     `;
     const [rows] = await this.pool.query(getAllTasksQuery, [userId]);
     return rows;
   }
 
-  // 특정 날짜의 할일 조회
-  async getAllDailyTasks(date, userId) {
-    const getAllDailyTasksQuery = `
-      SELECT * FROM tasks
-      WHERE userId = ? AND date = ?
-      ORDER BY priority ASC
-    `;
-    const [rows] = await this.pool.query(getAllDailyTasksQuery, [userId, date]);
-    return rows;
-  }
-
   // 할일 수정(여러 필드 업데이트)
-  async updateTask(taskId, updates, userId) {
-    const fields = [];
-    const values = [];
-
-    // { title: '...', content: '...', priority: 3 } 처럼 들어온다고 가정
-    Object.keys(updates).forEach((key) => {
-      fields.push(`${key} = ?`);
-      values.push(updates[key]);
-    });
-
-    if (fields.length === 0) {
-      throw new CustomError('No fields to update', 400);
-    }
-
-    // WHERE 조건에 쓰일 파라미터도 추가
-    values.push(taskId, userId);
-
-    const updateQuery = `
-      UPDATE tasks
-      SET ${fields.join(', ')}
-      WHERE taskId = ? AND userId = ?
-    `;
-    const [result] = await this.pool.query(updateQuery, values);
-
-    if (result.affectedRows === 0) {
-      throw new CustomError('Task not found or not authorized to update', 404);
-    }
-
-    const [updatedTask] = await this.pool.query(
-      `SELECT * FROM tasks WHERE taskId = ? AND userId = ?`,
-      [taskId, userId]
-    );
-
-    return updatedTask[0];
-  }
-
-  // 작업 우선순위 정렬 예시
-  async sortByPriority(date, userId) {
-    // 특정 날짜의 작업 가져와서 JS에서 소팅
-    const tasks = await this.getAllDailyTasks(date, userId);
-    return tasks.sort((a, b) => a.priority - b.priority);
+  async updateTask(taskId, content, userId) {
+      const updateTaskQuery = `
+        UPDATE tasks
+        SET content = ?
+        WHERE taskId = ? AND userId = ?`;
+  
+      const [result] = await this.pool.query(updateTaskQuery, [content, taskId, userId]);
+  
+      if (result.affectedRows === 0) {
+        throw new CustomError('Task not found or not authorized to update', 404);
+      }
+  
+      const [updatedTask] = await this.pool.query(
+        `SELECT * FROM tasks WHERE taskId = ? AND userId = ?`,
+        [taskId, userId]
+      );
+  
+      if (updatedTask.length === 0) {
+        throw new CustomError('Updated task not found', 404);
+      }
+  
+      return updatedTask[0];
   }
 }
 

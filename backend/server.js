@@ -3,14 +3,39 @@ const express = require('express');
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
 
+const cors = require('cors');
+
 const { pool, testConnection } = require('./db'); 
 const userController = require('./controllers/userController');
 const taskController = require('./controllers/taskController');
 const errorHandler = require('./middlewares/errorHandler');
 const UserService = require('./services/userService');
 
+const fs = require('fs/promises');
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
+
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true, 
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+}));
+
+// setup.sql 실행 함수
+async function executeSetupSQL() {
+  try {
+    const sqlPath = path.join(__dirname, 'setup.sql'); // setup.sql 경로 설정
+    const sql = await fs.readFile(sqlPath, 'utf8'); // SQL 파일 읽기
+    const connection = await pool.getConnection(); // DB 연결 가져오기
+    await connection.query(sql); // SQL 실행
+    connection.release(); // 연결 해제
+    console.log('setup.sql executed successfully.');
+  } catch (err) {
+    console.error('Failed to execute setup.sql:', err.message);
+    throw err; // 실패 시 오류를 던져 서버 시작 중단
+  }
+}
 
 // ----------------------------------------------------------------------------
 // DB 테스트 & 서버 시작 (비동기 함수)
@@ -38,7 +63,7 @@ async function startServer() {
       resave: false,
       saveUninitialized: false,
       cookie: {
-        httpOnly: true,
+        httpOnly: false,
         secure: false, 
         maxAge: 1000 * 60 * 15, 
       },
@@ -50,8 +75,8 @@ async function startServer() {
   // ----------------------------------------------------------------------------
   const userService = new UserService(pool);
 
-  app.use('/users', userController);
-  app.use('/tasks', taskController);
+  app.use('/user', userController);
+  app.use('/dashboard', taskController);
 
   // 헬스체크 엔드포인트
   app.get('/health', async (req, res) => {

@@ -1,4 +1,3 @@
-// controllers/taskController.js
 const express = require('express');
 const router = express.Router();
 
@@ -10,29 +9,31 @@ const asyncWrapper = require('../utils/asyncWrapper'); // 비동기 에러 핸�
 // 서비스 인스턴스
 const taskService = new TaskServices(pool);
 
-// ---------------------------------------------
-// 작업 생성
-// POST /tasks/create
-// ---------------------------------------------
+//할 일 생성
 router.post('/create',requireAuth, asyncWrapper(async (req, res) => {
-    const userId = req.session.user.id; 
-    const { title, content, priority } = req.body;
+    const userId = req.session.user.id;
 
-    if (!title || !content || priority == null) {
-      return res.status(400).json({ error: 'title, content, priority are required' });
+    if(!userId){
+      return res.redirect('/user/login');
     }
 
-    const task = await taskService.createTask(title, content, priority, userId);
+    const {content} = req.body;
+
+    if (!content) {
+      return res.status(400).json({ error: 'content is required' });
+    }
+
+    const task = await taskService.createTask(content, userId);
     return res.status(200).json({ message: 'Task created successfully', task });
   })
 );
 
-// ---------------------------------------------
-// 작업 완료 설정
-// PUT /tasks/complete/:taskId
-// ---------------------------------------------
+//할일 완료 
 router.put('/complete/:taskId',requireAuth, asyncWrapper(async (req, res) => {
     const userId = req.session.user.id;
+    if(!userId){
+      return res.redirect('/user/login');
+    }
     const { taskId } = req.params;
     const { isFinished } = req.body;
 
@@ -41,12 +42,12 @@ router.put('/complete/:taskId',requireAuth, asyncWrapper(async (req, res) => {
   })
 );
 
-// ---------------------------------------------
-// 작업 삭제
-// DELETE /tasks/delete/:taskId
-// ---------------------------------------------
+//할 일 삭제 
 router.delete('/delete/:taskId',requireAuth,asyncWrapper(async (req, res) => {
     const userId = req.session.user.id;
+    if(!userId){
+      return res.redirect('/user/login');
+    }
     const { taskId } = req.params;
 
     const result = await taskService.deleteTask(taskId, userId);
@@ -54,12 +55,12 @@ router.delete('/delete/:taskId',requireAuth,asyncWrapper(async (req, res) => {
   })
 );
 
-// ---------------------------------------------
-// 특정 작업 조회
-// GET /tasks/task/:taskId
-// ---------------------------------------------
+//특정 할 일 가져오기 
 router.get('/task/:taskId',requireAuth,asyncWrapper(async (req, res) => {
     const userId = req.session.user.id;
+    if(!userId){
+      return res.redirect('/user/login');
+    }
     const { taskId } = req.params;
 
     const task = await taskService.getOneTask(taskId, userId);
@@ -67,63 +68,35 @@ router.get('/task/:taskId',requireAuth,asyncWrapper(async (req, res) => {
   })
 );
 
-// ---------------------------------------------
-// 전체 작업 조회
-// GET /tasks
-// ---------------------------------------------
+//전체 할 일 가져오기 
 router.get('/',requireAuth, asyncWrapper(async (req, res) => {
     const userId = req.session.user.id;
+
+    if(!userId){
+      return res.redirect('/user/login');
+    }
+
     const tasks = await taskService.getAllTasks(userId);
     return res.status(200).json(tasks);
   })
 );
 
-// ---------------------------------------------
-// 특정 날짜의 작업 조회
-// GET /tasks/daily-tasks?date=YYYY-MM-DD
-// ---------------------------------------------
-router.get('/daily-tasks',requireAuth, asyncWrapper(async (req, res) => {
-    const userId = req.session.user.id;
-    const { date } = req.query;
-
-    if (!date) {
-      return res.status(400).json({ error: 'date query param is required' });
-    }
-
-    const tasks = await taskService.getAllDailyTasks(date, userId);
-    return res.status(200).json(tasks);
-  })
-);
-
-// ---------------------------------------------
-// 작업 수정
-// PUT /tasks/update/:taskId
-// ---------------------------------------------
+//할 일 수정
 router.put('/update/:taskId',requireAuth, asyncWrapper(async (req, res) => {
     const userId = req.session.user.id;
-    const { taskId } = req.params;
-    const updates = req.body; // { title, content, priority... }
 
-    const updated = await taskService.updateTask(taskId, updates, userId);
+    if(!userId){
+      return res.redirect('/user/login');
+    }
+
+    const { taskId } = req.params;
+    const content = req.body; 
+
+    const updated = await taskService.updateTask(taskId, content, userId);
     return res.status(200).json(updated);
   })
 );
 
-// ---------------------------------------------
-// 작업 우선순위 정렬
-// GET /tasks/sort?date=YYYY-MM-DD
-// ---------------------------------------------
-router.get('/sort',requireAuth, asyncWrapper(async (req, res) => {
-    const userId = req.session.user.id;
-    const { date } = req.query;
 
-    if (!date) {
-      return res.status(400).json({ error: 'date query param is required' });
-    }
-
-    const sortedTasks = await taskService.sortByPriority(date, userId);
-    return res.status(200).json(sortedTasks);
-  })
-);
 
 module.exports = router;
