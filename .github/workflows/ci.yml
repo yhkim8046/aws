@@ -19,9 +19,13 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json  # 캐시 경로 지정
 
       - name: Install Dependencies
         run: npm install
+        working-directory: backend  # ✅ backend 폴더에서 실행되도록 수정
 
       - name: Run Tests
         run: npm test
+        working-directory: backend  # ✅ backend 폴더에서 실행되도록 수정
