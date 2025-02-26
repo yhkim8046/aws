@@ -6,14 +6,16 @@
     "test": "jest --coverage"
   },
   "jest": {
-    "testMatch": ["**/__tests__/**/*.test.js"]
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ]
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
     "body-parser": "^1.20.3",
     "connect-pg-simple": "^10.0.0",
     "cookie-parser": "^1.4.7",
