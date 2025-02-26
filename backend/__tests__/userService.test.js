@@ -1,5 +1,5 @@
 const UserService = require('../services/userService');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 describe('UserService', () => {
   let userService;
